@@ -67,39 +67,46 @@ Give:
 Use beginner-friendly language.
 """
 
+            # Try Gemini up to 3 times if there is a temporary 503 error
             with st.spinner("🤖 AI is reading your study material..."):
 
-                response = with st.spinner("🤖 AI is reading your study material..."):
+                for attempt in range(3):
 
-    for attempt in range(3):
-        try:
-            response = client.models.generate_content(
-                model="gemini-3.8-flash",
-                contents=[
-                    types.Part.from_bytes(
-                        data=file_bytes,
-                        mime_type=mime_type
-                    ),
-                    prompt
-                ]
-            )
-            break
+                    try:
 
-        except Exception as e:
-            if "503" in str(e) and attempt < 2:
-                time.sleep(3)
-            else:
-                raise
+                        response = client.models.generate_content(
+                            model="gemini-3.8-flash",
+                            contents=[
+                                types.Part.from_bytes(
+                                    data=file_bytes,
+                                    mime_type=mime_type
+                                ),
+                                prompt
+                            ]
+                        )
+
+                        break
+
+                    except Exception as e:
+
+                        if "503" in str(e) and attempt < 2:
+                            time.sleep(3)
+                        else:
+                            raise
 
             # Display answer
             st.subheader("📖 Explanation")
 
             if response.text:
                 st.write(response.text)
+
             else:
-                st.warning("⚠️ Gemini did not return an explanation.")
+                st.warning(
+                    "⚠️ Gemini did not return an explanation."
+                )
 
         except KeyError:
+
             st.error("❌ GEMINI_API_KEY is missing.")
 
             st.info(
@@ -125,6 +132,17 @@ Use beginner-friendly language.
                     "That can trigger the rate limit again."
                 )
 
+            elif "503" in error_text:
+
+                st.error(
+                    "⏳ Gemini is temporarily busy."
+                )
+
+                st.info(
+                    "Please wait a little and press Explain again."
+                )
+
             else:
+
                 st.error("❌ Something went wrong.")
                 st.code(error_text)
