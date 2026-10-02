@@ -69,16 +69,27 @@ Use beginner-friendly language.
 
             with st.spinner("🤖 AI is reading your study material..."):
 
-                response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=[
-                        types.Part.from_bytes(
-                            data=file_bytes,
-                            mime_type=mime_type
-                        ),
-                        prompt
-                    ]
-                )
+                response = with st.spinner("🤖 AI is reading your study material..."):
+
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model="gemini-3.8-flash",
+                contents=[
+                    types.Part.from_bytes(
+                        data=file_bytes,
+                        mime_type=mime_type
+                    ),
+                    prompt
+                ]
+            )
+            break
+
+        except Exception as e:
+            if "503" in str(e) and attempt < 2:
+                time.sleep(3)
+            else:
+                raise
 
             # Display answer
             st.subheader("📖 Explanation")
