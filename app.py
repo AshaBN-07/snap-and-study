@@ -1,7 +1,8 @@
 import streamlit as st
-from google import genai
+import smtplib
+from email.mime.text import MIMEText
+import google.genai as genai
 from google.genai import types
-import time
 
 st.set_page_config(
     page_title="Snap & Study",
@@ -22,14 +23,12 @@ if uploaded_file:
 
     file_bytes = uploaded_file.getvalue()
 
-    # Image preview
     if uploaded_file.type.startswith("image/"):
         st.image(
             uploaded_file,
             caption="Your uploaded image"
         )
 
-    # PDF information
     elif uploaded_file.type == "application/pdf":
         st.success("📄 PDF uploaded successfully!")
         st.write("File:", uploaded_file.name)
@@ -38,111 +37,98 @@ if uploaded_file:
             f"{uploaded_file.size / (1024 * 1024):.2f} MB"
         )
 
-    # Explain button
-    if st.button("✨ Explain", type="primary"):
+    if st.button("✨ Explain"):
 
         try:
-            # Get API key from Streamlit Secrets
-            api_key = st.secrets["GEMINI_API_KEY"]
-
             client = genai.Client(
-                api_key=api_key
+                api_key=st.secrets["GEMINI_API_KEY"]
             )
 
-            # File type
-            mime_type = uploaded_file.type
+            response = client.models.generate_content(
+                model="gemini-3.8-flash",
+                contents=[
+                    types.Part.from_bytes(
+                        data=file_bytes,
+                        mime_type=uploaded_file.type
+                    ),
+                    """
+                    Explain this study material in very simple words.
 
-            # Prompt
-            prompt = """
-Explain this study material in very simple words.
+                    Give:
 
-Give:
+                    1. Simple Explanation
+                    2. Key Concepts
+                    3. Important Points
+                    4. Steps to Understand
+                    5. Short Summary
 
-1. Simple Explanation
-2. Key Concepts
-3. Important Points
-4. Steps to Understand
-5. Short Summary
+                    Use beginner-friendly language.
+                    """
+                ]
+            )
 
-Use beginner-friendly language.
-"""
+            explanation = response.text
 
-            # Try Gemini up to 3 times if there is a temporary 503 error
-            with st.spinner("🤖 AI is reading your study material..."):
+            st.subheader("📖 Explanation")
+            st.write(explanation)
 
-                for attempt in range(3):
+            st.divider()
 
-                    try:
+            st.subheader("📧 Send Explanation by Email")
 
-                        response = client.models.generate_content(
-                            model="gemini-3.8-flash",
-                            contents=[
-                                types.Part.from_bytes(
-                                    data=file_bytes,
-                                    mime_type=mime_type
-                                ),
-                                prompt
-                            ]
+            recipient_email = st.text_input(
+                "Enter email address"
+            )
+
+            if st.button("📨 Send Email"):
+
+                try:
+                    sender_email = st.secrets["GMAIL_ADDRESS"]
+                    app_password = st.secrets["GMAIL_APP_PASSWORD"]
+
+                    message = MIMEText(
+                        explanation,
+                        "plain",
+                        "utf-8"
+                    )
+
+                    message["Subject"] = (
+                        "Snap & Study - AI Explanation"
+                    )
+
+                    message["From"] = sender_email
+                    message["To"] = recipient_email
+
+                    with smtplib.SMTP(
+                        "smtp.gmail.com",
+                        587
+                    ) as server:
+
+                        server.starttls()
+
+                        server.login(
+                            sender_email,
+                            app_password
                         )
 
-                        break
+                        server.send_message(message)
 
-                    except Exception as e:
+                    st.success(
+                        "✅ Explanation sent successfully!"
+                    )
 
-                        if "503" in str(e) and attempt < 2:
-                            time.sleep(3)
-                        else:
-                            raise
+                except Exception as e:
 
-            # Display answer
-            st.subheader("📖 Explanation")
+                    st.error(
+                        "❌ Email could not be sent."
+                    )
 
-            if response.text:
-                st.write(response.text)
-
-            else:
-                st.warning(
-                    "⚠️ Gemini did not return an explanation."
-                )
-
-        except KeyError:
-
-            st.error("❌ GEMINI_API_KEY is missing.")
-
-            st.info(
-                "Go to Streamlit → Manage app → Settings → Secrets "
-                "and add your Gemini API key."
-            )
+                    st.write(str(e))
 
         except Exception as e:
 
-            error_text = str(e)
+            st.error(
+                "❌ Something went wrong."
+            )
 
-            if "429" in error_text or "RESOURCE_EXHAUSTED" in error_text:
-
-                st.error("⏳ Gemini API quota exceeded.")
-
-                st.warning(
-                    "Your Gemini free-tier request limit has been reached. "
-                    "Please wait and try again later."
-                )
-
-                st.info(
-                    "⚠️ Do not keep pressing Explain repeatedly. "
-                    "That can trigger the rate limit again."
-                )
-
-            elif "503" in error_text:
-
-                st.error(
-                    "⏳ Gemini is temporarily busy."
-                )
-
-                st.info(
-                    "Please wait a little and press Explain again."
-                )
-
-            else:
-
-                st.error("❌ Something went wrong.")
-                st.code(error_text)
+            st.write(str(e))
