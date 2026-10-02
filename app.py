@@ -24,10 +24,7 @@ if uploaded_file:
     file_bytes = uploaded_file.getvalue()
 
     if uploaded_file.type.startswith("image/"):
-        st.image(
-            uploaded_file,
-            caption="Your uploaded image"
-        )
+        st.image(uploaded_file, caption="Your uploaded image")
 
     elif uploaded_file.type == "application/pdf":
         st.success("📄 PDF uploaded successfully!")
@@ -67,60 +64,68 @@ if uploaded_file:
                 ]
             )
 
-            explanation = response.text
-
-            st.subheader("📖 Explanation")
-            st.write(explanation)
-
-            st.divider()
-
-            st.subheader("📧 Send Explanation by Email")
-
-            recipient_email = st.text_input(
-                "Enter email address"
-            )
-
-            if st.button("📨 Send Email"):
-
-                try:
-                    sender_email = st.secrets["GMAIL_ADDRESS"]
-                    app_password = st.secrets["GMAIL_APP_PASSWORD"]
-
-                    message = MIMEText(
-                        explanation,
-                        "plain",
-                        "utf-8"
-                    )
-
-                    message["Subject"] = (
-                        "Snap & Study - AI Explanation"
-                    )
-
-                    message["From"] = sender_email
-                    message["To"] = recipient_email
-
-                    with smtplib.SMTP(
-                        "smtp.gmail.com",
-                        587
-                    ) as server:
-
-                        server.starttls()
-
-                        server.login(
-                            sender_email,
-                            app_password
-                        )
-
-                        server.send_message(message)
-
-                    st.success(
-                        "✅ Explanation sent successfully!"
-                    )
-
-                except Exception as e:
-                    st.error("❌ Email could not be sent.")
-                    st.write(str(e))
+            st.session_state["explanation"] = response.text
 
         except Exception as e:
-            st.error("❌ Something went wrong.")
+            st.error("❌ AI explanation failed.")
             st.write(str(e))
+
+
+# Show explanation if it exists
+if "explanation" in st.session_state:
+
+    explanation = st.session_state["explanation"]
+
+    st.subheader("📖 Explanation")
+    st.write(explanation)
+
+    st.divider()
+
+    st.subheader("📧 Send Explanation by Email")
+
+    recipient_email = st.text_input(
+        "Enter email address",
+        key="recipient_email"
+    )
+
+    if st.button("📨 Send Email"):
+
+        if not recipient_email:
+            st.warning("⚠️ Please enter an email address.")
+
+        else:
+
+            try:
+                sender_email = st.secrets["GMAIL_ADDRESS"]
+                app_password = st.secrets["GMAIL_APP_PASSWORD"]
+
+                message = MIMEText(
+                    explanation,
+                    "plain",
+                    "utf-8"
+                )
+
+                message["Subject"] = "Snap & Study - AI Explanation"
+                message["From"] = sender_email
+                message["To"] = recipient_email
+
+                with smtplib.SMTP(
+                    "smtp.gmail.com",
+                    587
+                ) as server:
+
+                    server.starttls()
+
+                    server.login(
+                        sender_email,
+                        app_password
+                    )
+
+                    server.send_message(message)
+
+                st.success("✅ Email sent successfully!")
+
+            except Exception as e:
+
+                st.error("❌ Email sending failed.")
+                st.exception(e)
