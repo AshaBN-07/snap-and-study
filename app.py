@@ -45,7 +45,7 @@ if uploaded_file:
             )
 
             response = client.models.generate_content(
-                model="gemini-3.8-flash",
+                model="gemini-2.5-flash-lite",
                 contents=[
                     types.Part.from_bytes(
                         data=file_bytes,
@@ -118,17 +118,9 @@ if uploaded_file:
                     )
 
                 except Exception as e:
-
-                    st.error(
-                        "❌ Email could not be sent."
-                    )
-
+                    st.error("❌ Email could not be sent.")
                     st.write(str(e))
 
         except Exception as e:
-
-            st.error(
-                "❌ Something went wrong."
-            )
-
+            st.error("❌ Something went wrong.")
             st.write(str(e))
